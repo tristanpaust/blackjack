@@ -12,6 +12,7 @@ type Deck = [Card]
 type Hand = [Card]
 
 -- Helper function to remove the quotes around the A for Aces
+-- https://stackoverflow.com/questions/12102874/haskell-suppress-quotes-around-strings-when-shown
 newtype PlainString = PlainString String
 instance Show PlainString where
   show (PlainString s) = s
@@ -48,3 +49,41 @@ allAces = [ AceCard "Ace" suit | suit <- suits]
 
 fullDeck :: Deck
 fullDeck = allNumbers ++ allFaces ++ allAces
+-- [2♡,2♢,2♣,2♠,3♡,3♢,3♣,3♠,4♡,4♢,4♣,4♠,5♡,5♢,5♣,5♠,6♡,6♢,6♣,6♠,7♡,7♢,7♣,7♠,8♡,8♢,8♣,8♠,9♡,9♢,9♣,9♠,10♡,10♢,10♣,10♠,K♡,K♢,K♣,K♠,Q♡,Q♢,Q♣,Q♠,J♡,J♢,J♣,J♠,A♡,A♢,A♣,A♠]
+
+data Score = Score [Int]
+  deriving Show
+
+cardScore :: Card -> Score
+cardScore (RoyalCard v _) = Score [10,0]
+cardScore (AceCard v _) = Score [1,10]
+cardScore (IntCard v _) = Score [v,0]
+
+scoreValue :: Score -> Int
+scoreValue (Score ([])) = 0
+scoreValue (Score (x:xs)) = x + scoreValue (Score xs)
+
+improveScore :: Score -> Score
+improveScore (Score (x:xs)) = if (scoreValue (Score (x:xs)) > 21) then (Score [x,0]) else (Score (x:xs))
+
+-- improveScore(Score[1,30])
+-- -> Score [1,0]
+-- improveScore(Score[12,30])
+-- -> Score [12,0]
+-- improveScore(Score[21,30])
+-- -> Score [21,0]
+-- improveScore(Score[11,10])
+-- -> Score [11,10]
+-- scoreValue(Score[11,10])
+-- -> 21
+
+newHand = [IntCard 7 Diamonds, RoyalCard King Hearts, AceCard "Ace" Spades]
+
+instance Monoid Score where
+  Score x `mappend` Score y = Score (zipWith (+) x y)
+  mempty = Score []
+-- Score [2,13] `mappend` Score [3,3]
+-- -> Score [5,16]
+-- Score [2,13] `mappend` Score [10,12] `mappend` Score[3,3]
+-- -> Score [15,28]
+-- TODO: EMPTY WITH NON-EMPTY LIST
