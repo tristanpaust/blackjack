@@ -119,7 +119,7 @@ handValue x = scoreValue(improveScore(handScore x))
 -- handValue definitelyBusted
 -- -> 29
 
---- Ordered Tuples used for shuffling lists, e.g the full deck of cards
+--- Indexed Tuples used for shuffling lists, e.g the full deck of cards
 data Indexed i a = Indexed (i,a)
   deriving Show
 
@@ -136,3 +136,37 @@ instance (Eq i) => Eq (Indexed i a) where
 instance (Ord i) => Ord (Indexed i a) where
     (Indexed (i1,a1)) > (Indexed (i2,a2)) = i1 > i2
     (Indexed (i1,a1)) <= (Indexed (i2,a2)) = i1 <= i2
+
+backToString [] = []
+backToString (Indexed(x,y):xs) = y:backToString xs
+
+makeIndexedList :: [Int] -> [a] -> [(Indexed Int a)]
+makeIndexedList [] (y:ys) = []
+makeIndexedList (x:xs) [] = []
+makeIndexedList [] [] = []
+makeIndexedList (x:xs) (y:ys) =
+  (Indexed(x,y)) : (makeIndexedList xs ys)
+
+shuffle :: [Int] -> [a] -> [a]
+shuffle [] (y:ys) = []
+shuffle (x:xs) [] = []
+shuffle [] [] = []
+shuffle (x:xs) (y:ys) = backToString(sort(makeIndexedList (x:xs)(y:ys)))
+
+-- TESTING
+intList1 :: [Int]
+intList1 = [4, 2, 7, 3, 6, 9] 
+charList1 = "abcdef"
+
+intList2 :: [Int]
+intList2 = [12, 3, 7, 5, 1]
+charList2 = "vwxyz"
+
+-- shuffle intList1 charList1
+-- -> "bdaecf"
+-- shuffle intList2 charList2
+-- -> "zwyxv"
+-- -> shuffle intList2 charList1
+-- -> "ebdca"
+-- shuffle intList1 charList2
+-- -> "wyvzx"
