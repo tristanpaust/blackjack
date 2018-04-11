@@ -73,13 +73,14 @@ improveScore (Score (x:xs)) = if (scoreValue (Score (x:xs)) > 21) then (Score [x
 -- -> 21
 
 instance Monoid Score where
-  Score x `mappend` Score y = Score (zipWith (+) x y)
   mempty = Score []
+  Score x `mappend` Score [] = Score x
+  Score [] `mappend` Score x = Score x
+  Score x `mappend` Score y = Score (zipWith (+) x y)
 -- Score [2,13] `mappend` Score [3,3]
 -- -> Score [5,16]
 -- Score [2,13] `mappend` Score [10,12] `mappend` Score[3,3]
 -- -> Score [15,28]
--- TODO: EMPTY WITH NON-EMPTY LIST
 
 -- HANDS FOR TESTING
 notBusted :: Hand
