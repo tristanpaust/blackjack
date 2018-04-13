@@ -1,4 +1,6 @@
 module Blackjack where
+import Data.List
+import System.Random
 
 -- Data Types
 data Suit = Hearts | Diamonds | Clubs | Spades
@@ -171,3 +173,49 @@ charList2 = "vwxyz"
 -- -> "ebdca"
 -- shuffle intList1 charList2
 -- -> "wyvzx"
+
+freshDeck :: IO Deck
+freshDeck = do
+  g <- newStdGen
+  return (shuffle (take 52 $ (randoms:: StdGen -> [Int]) g) fullDeck)
+
+dealOneCard :: Deck -> (Card, Deck)
+dealOneCard (x:xs) = (x,xs)
+
+addToHand :: Hand -> Deck -> (Hand, Deck)
+addToHand (x:xs) (y:ys) = (y:(x:xs),ys)
+
+getSingleCard :: Deck -> Card
+getSingleCard (x:xs) = x
+
+currentDeck = freshDeck
+
+draw :: Deck -> IO (Card, Deck)
+draw deck = do
+  currentDeck <- freshDeck
+  let (card, rest) = dealOneCard currentDeck
+  return (card, rest)
+
+hitHand :: Hand -> Deck -> IO (Hand, Deck)
+hitHand hand deck = do
+  let (hand, rest) = addToHand hand deck
+  return (hand, rest)
+
+deal :: Deck -> IO (Hand, Deck)
+deal deck = do
+  currentDeck <- freshDeck
+  let (x,xs) = dealOneCard currentDeck
+  let (y, remainder) = dealOneCard xs
+  return ([x,y], remainder)
+
+list_to_string = unwords . map show 
+-- https://stackoverflow.com/questions/30352733/outputting-a-list-in-haskell-without-the-brackets-and-over-a-range
+-- show returns unicodes like so: "[4\9824,Q\9827]", 
+-- putStrLn shows them like so: [4♠,Q♣], 
+-- hence, we have to remove the array brackets and the comma with the above fucntion before actually printing it
+
+prettyPrint :: Hand -> String
+prettyPrint hand = "Your hand is " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ") What do you do?"
+
+printHand fun hand = do
+  putStrLn (fun hand)
