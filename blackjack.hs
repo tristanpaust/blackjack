@@ -219,3 +219,31 @@ prettyPrint hand = "Your hand is " ++ list_to_string(hand) ++ " (" ++ (show (han
 
 printHand fun hand = do
   putStrLn (fun hand)
+
+-- User input handling 
+parseMove :: String -> Maybe Move
+parseMove s =
+  case s of
+  "hit" -> Just (Hit) 
+  "stand" -> Just (Stand)
+  otherwise -> Nothing
+
+prompt :: String -- query message
+  -> String -- help message
+  -> (String -> Maybe a) -- parse input to get an 'a' value
+  -> (a -> IO b) -- reaction to the 'a' input
+  -> IO b -- result after successful input
+
+prompt query help parse act = do
+  putStrLn query
+  answer <- getLine
+  case answer of
+    "quit" -> exitSuccess
+    "help" -> do
+        putStrLn help
+        prompt query help parse act
+    otherwise -> case parse answer of
+      Just result -> act result
+      Nothing -> do
+        putStrLn "I did not understand that"
+        prompt query help parse act
