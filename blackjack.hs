@@ -247,3 +247,39 @@ prompt query help parse act = do
       Nothing -> do
         putStrLn "I did not understand that"
         prompt query help parse act
+
+
+data Move = Hit | Stand
+  deriving (Enum, Eq)
+
+hitstandhelp = "You can either \"hit\" or \"stand\"."
+
+playerHits hand deck = do
+  (x,xs) <- hitHand hand deck
+  case compare (handValue x) 21 of
+    LT -> playerTurn x xs
+    GT -> do
+          putStrLn "Your hand is busted!"
+          exitSuccess
+
+takeAction hand deck action = 
+  case action of 
+        Hit -> playerHits hand deck
+        Stand -> playerTurn hand deck
+
+playerTurn :: Hand -> Deck -> IO (Hand, Deck)
+playerTurn hand deck = 
+  let decideAction action = takeAction hand deck action in
+  prompt (prettyPrint hand) hitstandhelp parseMove decideAction
+
+dealerTurn :: Hand -> Deck -> IO (Hand, Deck)
+dealerTurn hand deck = do
+  case compare (handValue hand) 21 of
+    LT -> do
+          (x,xs) <- hitHand hand deck
+          print (handValue hand)
+          dealerTurn x xs
+    GT -> do 
+          putStrLn "Dealer is over 21. You win!"
+          print (handValue hand)
+          exitSuccess
