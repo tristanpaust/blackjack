@@ -238,6 +238,9 @@ list_to_string = unwords . map show
 prettyPrint :: Hand -> String
 prettyPrint hand = "Your hand is " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ") What do you do?"
 
+dealerReveals :: Hand -> String
+dealerReveals hand = "The dealer reveals his hand: " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ")"
+
 parseMove :: String -> Maybe Move
 parseMove s =
   case s of
@@ -309,27 +312,35 @@ dealInitialHands deck = do
     (playerHand, deck'') <- deal deck'
     return (dealerHand, playerHand, deck'')
 
-showDealersFirst hand deck move = do
-  printHand ("Dealers first card is: " ++ list_to_string(hand))
+parts "" = [] 
+parts s  = if null a then (c ++ e):parts f else a:parts b
+    where
+    (a, b) = break isSpace s
+    (c, d) = span isSpace s
+    (e, f) = break isSpace d
+-- To show the dealers first card, we turn the entire hand into a string, split the string on a whitespace and return only the first part
+-- https://stackoverflow.com/questions/7073321/haskell-breaking-up-words-by-first-space
 
-printHand sentence = do
-  putStrLn sentence
+showDealersFirst hand deck move = do
+  putStrLn ("The dealer's first card is: " ++ head(parts(list_to_string hand)))
 
 isBlackjack :: Hand -> Bool
 isBlackjack hand =
     (((scoreValue(cardScore(head hand)) == 11) && (scoreValue(cardScore(last hand)) == 10)) || 
     ((scoreValue(cardScore(last hand)) == 11) && (scoreValue(cardScore(head hand)) == 10)))
 
---gameLoop :: Deck -> IO a
+gameLoop :: Deck -> IO a
 gameLoop deck = do
-  (dealerHand, playerHand, deck) <- dealInitialHands deck
+  (dealerHand, playerHand, deck) <- dealInitialHands deck -- Get initial hands
 
-  let beginGame move = showDealersFirst dealerHand deck move in
+  let beginGame move = showDealersFirst dealerHand deck move in -- Show the dealer's first card, start a new round
     prompt "Ready?" "Press Enter to continue" parseMove beginGame
 
-  (playerHand,playerDeck) <- playerTurn playerHand deck
+  (playerHand,playerDeck) <- playerTurn playerHand deck -- Player's turn
+  (dealerHand,dealerDeck) <- dealerTurn dealerHand playerDeck -- Dealer's turn
+  
+  putStrLn (dealerReveals dealerHand) -- Show dealer's hand after he is done hitting
 
-  dealerDeck <- dealerTurn dealerHand playerDeck
   if length playerHand == 2 && isBlackjack playerHand && (length dealerHand) /= 2 -- If the player has two card and blackjack, but the bank has more than 2, the player automatically wins
   then putStrLn "You win!"
   else if length playerHand == 2 && isBlackjack playerHand && isBlackjack dealerHand
@@ -340,7 +351,11 @@ gameLoop deck = do
   then putStrLn "You win!"
   else putStrLn "The house wins."
 
---main :: IO ()
+  gameLoop deck -- Start new round
+
+-- *** End of Question 4.1 *** --
+
+main :: IO ()
 main = do
   putStrLn "Welcome to blackjack!"
   deck <- freshDeck
