@@ -1,6 +1,8 @@
 module Blackjack where
 import Data.List
 import System.Random
+import System.Exit
+import Data.Char
 
 -- Data Types
 data Suit = Hearts | Diamonds | Clubs | Spades
@@ -217,13 +219,11 @@ list_to_string = unwords . map show
 prettyPrint :: Hand -> String
 prettyPrint hand = "Your hand is " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ") What do you do?"
 
-printHand fun hand = do
-  putStrLn (fun hand)
-
 -- User input handling 
 parseMove :: String -> Maybe Move
 parseMove s =
   case s of
+  "" -> Just (Play)
   "hit" -> Just (Hit) 
   "stand" -> Just (Stand)
   otherwise -> Nothing
@@ -248,38 +248,93 @@ prompt query help parse act = do
         putStrLn "I did not understand that"
         prompt query help parse act
 
-
-data Move = Hit | Stand
+data Move = Hit | Stand | Play
   deriving (Enum, Eq)
 
-hitstandhelp = "You can either \"hit\" or \"stand\"."
+informAboutLoss hand = "You busted!" ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ " The house wins."
 
 playerHits hand deck = do
+  print (hand)
+
   (x,xs) <- hitHand hand deck
   case compare (handValue x) 21 of
     LT -> playerTurn x xs
+    EQ -> playerTurn x xs
     GT -> do
-          putStrLn "Your hand is busted!"
-          exitSuccess
+            --putStrLn informAboutLoss hand
+            print (hand)
+            return (hand,deck)
 
 takeAction hand deck action = 
   case action of 
         Hit -> playerHits hand deck
-        Stand -> playerTurn hand deck
+        Stand -> return (hand,deck)
 
 playerTurn :: Hand -> Deck -> IO (Hand, Deck)
 playerTurn hand deck = 
   let decideAction action = takeAction hand deck action in
-  prompt (prettyPrint hand) hitstandhelp parseMove decideAction
+  prompt (prettyPrint hand) "You can either \"hit\" or \"stand\"." parseMove decideAction
 
 dealerTurn :: Hand -> Deck -> IO (Hand, Deck)
 dealerTurn hand deck = do
-  case compare (handValue hand) 21 of
+  case compare (handValue hand) 17 of
     LT -> do
-          (x,xs) <- hitHand hand deck
-          print (handValue hand)
-          dealerTurn x xs
+            (x,xs) <- hitHand hand deck
+            --print (handValue hand)
+            dealerTurn x xs
     GT -> do 
-          putStrLn "Dealer is over 21. You win!"
-          print (handValue hand)
-          exitSuccess
+            --print (handValue hand)
+            return (hand, deck)
+    EQ -> do
+            return (hand, deck)
+
+dealInitialHands deck = do
+    (dealerHand,deck') <- deal deck 
+    (playerHand, deck'') <- deal deck'
+    return (dealerHand, playerHand, deck'')
+
+showDealersFirst hand deck move = do
+  printHand ("Dealers first card is: " ++ list_to_string(hand))
+
+printHand sentence = do
+  putStrLn sentence
+
+isBlackjack :: Hand -> Bool
+isBlackjack hand =
+    (((scoreValue(cardScore(head hand)) == 11) && (scoreValue(cardScore(last hand)) == 10)) || 
+    ((scoreValue(cardScore(last hand)) == 11) && (scoreValue(cardScore(head hand)) == 10)))
+
+--gameLoop :: Deck -> IO a
+gameLoop deck = do
+  (dealerHand, playerHand, deck) <- dealInitialHands deck
+
+  let beginGame move = showDealersFirst dealerHand deck move in
+    prompt "Ready?" "Press Enter to continue" parseMove beginGame
+
+  (playerHand,playerDeck) <- playerTurn playerHand deck
+  --print (playerHand,playerDeck)
+  --print(head dealerHand)
+
+  dealerDeck <- dealerTurn dealerHand playerDeck
+  if length playerHand == 2 && isBlackjack playerHand && (length dealerHand) /= 2 -- If the player has two card and blackjack, but the bank has more than 2, the player automatically wins
+  then putStrLn "You win!"
+  else if length playerHand == 2 && isBlackjack playerHand && isBlackjack dealerHand
+  then putStrLn "Tie; Nobody wins."
+  else if length dealerHand == 2 && isBlackjack playerHand && length playerHand /= 2
+  then putStrLn "The house wins."
+  else if handValue playerHand > handValue dealerHand
+  then putStrLn "You win!"
+  else putStrLn "The house wins."
+
+
+--main :: IO ()
+main = do
+  putStrLn "Welcome to blackjack!"
+  deck <- freshDeck
+  gameLoop deck
+
+{--
+  TODO: 
+    - Doublecheck error handling
+    - shuffle new deck if old one is empty
+--}
