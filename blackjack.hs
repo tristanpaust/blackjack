@@ -241,6 +241,9 @@ prettyPrint hand = "Your hand is " ++ list_to_string(hand) ++ " (" ++ (show (han
 dealerReveals :: Hand -> String
 dealerReveals hand = "The dealer reveals his hand: " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ")"
 
+playerBusted :: Hand -> String
+playerBusted hand = "You busted! " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ") The house wins."
+
 parseMove :: String -> Maybe Move
 parseMove s =
   case s of
@@ -282,9 +285,8 @@ playerHits hand deck = do
     LT -> playerTurn x xs
     EQ -> playerTurn x xs
     GT -> do
-            --putStrLn informAboutLoss hand
-            print (hand)
-            return (hand,deck)
+            putStrLn (playerBusted hand) -- Show the lpayer his final hand and score, then restart the game
+            gameLoop deck
 
 takeAction hand deck action = 
   case action of 
@@ -364,5 +366,4 @@ main = do
 {--
   TODO: 
     - Doublecheck error handling
-    - shuffle new deck if old one is empty
 --}
