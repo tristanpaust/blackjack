@@ -1,4 +1,4 @@
-module Blackjack where
+module CardGames where
 import Data.List
 import System.Random
 import System.Exit
@@ -85,6 +85,18 @@ instance Monoid Score where
 -- -> Score [5,16]
 -- Score [2,13] `mappend` Score [10,12] `mappend` Score[3,3]
 -- -> Score [15,28]
+-- (Score [2,13] `mappend` Score [10,12]) `mappend` Score [3,3]
+-- -> Score [15,28]
+-- Score [2,13] `mappend` (Score [10,12] `mappend` Score[3,3])
+-- -> Score [15,28]
+-- mempty `mappend` Score [10,12]
+-- -> Score [10,12]
+-- Score [2,13] `mappend` mempty
+-- -> Score [2,13]
+-- Score [2,13] `mappend` mempty `mappend` Score[3,3]
+-- -> Score [5,16]
+-- Score [2,13] `mappend` Score [] `mappend` Score[3,3]
+-- Score [5,16]
 
 -- HANDS FOR TESTING
 notBusted :: Hand
@@ -124,7 +136,6 @@ handValue x = scoreValue(improveScore(handScore x))
 -- handValue definitelyBusted
 -- -> 29
 
---- Indexed Tuples used for shuffling lists, e.g the full deck of cards
 data Indexed i a = Indexed (i,a)
   deriving Show
 
@@ -139,8 +150,19 @@ instance (Eq i) => Eq (Indexed i a) where
   (Indexed (i1,a1)) == (Indexed (i2,a2)) = i1 == i2
 
 instance (Ord i) => Ord (Indexed i a) where
-    (Indexed (i1,a1)) > (Indexed (i2,a2)) = i1 > i2
-    (Indexed (i1,a1)) <= (Indexed (i2,a2)) = i1 <= i2
+  (Indexed (i1,a1)) > (Indexed (i2,a2)) = i1 > i2
+  (Indexed (i1,a1)) <= (Indexed (i2,a2)) = i1 <= i2
+
+-- Indexed (1,"a") < Indexed (1,"asdas")    
+-- ->False
+-- Indexed (1,"a") < Indexed (3,"asdas")
+-- ->True
+-- Indexed (4,"a") > Indexed (3,"asdas")
+-- ->True
+-- Indexed (4,"a") == Indexed (4,"a")
+-- -> True
+-- Indexed (4,"a") == Indexed (3,"a")
+-- ->False
 
 backToString [] = []
 backToString (Indexed(x,y):xs) = y:backToString xs
@@ -184,42 +206,38 @@ freshDeck = do
 dealOneCard :: Deck -> (Card, Deck)
 dealOneCard (x:xs) = (x,xs)
 
-addToHand :: Hand -> Deck -> (Hand, Deck)
-addToHand (x:xs) (y:ys) = (y:(x:xs),ys)
-
-getSingleCard :: Deck -> Card
-getSingleCard (x:xs) = x
-
-currentDeck = freshDeck
+getNewDeck = do
+  putStrLn "Shuffling a new deck..."
+  (y:ys) <- freshDeck  
+  return (y:ys)
 
 draw :: Deck -> IO (Card, Deck)
-draw deck = do
-  currentDeck <- freshDeck
-  let (card, rest) = dealOneCard currentDeck
-  return (card, rest)
+draw (x:xs) = return (x,xs)
+draw [] = do
+  (x:xs) <- getNewDeck
+  return (x,xs)
 
 hitHand :: Hand -> Deck -> IO (Hand, Deck)
 hitHand hand deck = do
-  let (hand, rest) = addToHand hand deck
-  return (hand, rest)
+  --currentDeck <- freshDeck
+  (card,rest) <- (draw deck)
+  return ((card:hand), rest)
 
 deal :: Deck -> IO (Hand, Deck)
 deal deck = do
-  currentDeck <- freshDeck
-  let (x,xs) = dealOneCard currentDeck
-  let (y, remainder) = dealOneCard xs
+  (x,xs) <- draw deck
+  (y, remainder) <- draw xs
   return ([x,y], remainder)
 
 list_to_string = unwords . map show 
 -- https://stackoverflow.com/questions/30352733/outputting-a-list-in-haskell-without-the-brackets-and-over-a-range
 -- show returns unicodes like so: "[4\9824,Q\9827]", 
 -- putStrLn shows them like so: [4♠,Q♣], 
--- hence, we have to remove the array brackets and the comma with the above fucntion before actually printing it
+-- hence, we have to remove the array brackets and the comma with the above function before actually printing it
 
 prettyPrint :: Hand -> String
 prettyPrint hand = "Your hand is " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ") What do you do?"
 
--- User input handling 
 parseMove :: String -> Maybe Move
 parseMove s =
   case s of
@@ -280,10 +298,8 @@ dealerTurn hand deck = do
   case compare (handValue hand) 17 of
     LT -> do
             (x,xs) <- hitHand hand deck
-            --print (handValue hand)
             dealerTurn x xs
     GT -> do 
-            --print (handValue hand)
             return (hand, deck)
     EQ -> do
             return (hand, deck)
@@ -312,8 +328,6 @@ gameLoop deck = do
     prompt "Ready?" "Press Enter to continue" parseMove beginGame
 
   (playerHand,playerDeck) <- playerTurn playerHand deck
-  --print (playerHand,playerDeck)
-  --print(head dealerHand)
 
   dealerDeck <- dealerTurn dealerHand playerDeck
   if length playerHand == 2 && isBlackjack playerHand && (length dealerHand) /= 2 -- If the player has two card and blackjack, but the bank has more than 2, the player automatically wins
@@ -325,7 +339,6 @@ gameLoop deck = do
   else if handValue playerHand > handValue dealerHand
   then putStrLn "You win!"
   else putStrLn "The house wins."
-
 
 --main :: IO ()
 main = do
