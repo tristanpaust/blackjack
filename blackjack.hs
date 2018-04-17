@@ -219,7 +219,6 @@ draw [] = do
 
 hitHand :: Hand -> Deck -> IO (Hand, Deck)
 hitHand hand deck = do
-  --currentDeck <- freshDeck
   (card,rest) <- (draw deck)
   return ((card:hand), rest)
 
@@ -244,6 +243,9 @@ dealerReveals hand = "The dealer reveals his hand: " ++ list_to_string(hand) ++ 
 playerBusted :: Hand -> String
 playerBusted hand = "You busted! " ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ ") The house wins."
 
+showWallet :: Wallet -> String
+showWallet money = "You have " ++ (show money) ++ "$ in your wallet. How much do you want to bet?"
+
 parseMove :: String -> Maybe Move
 parseMove s =
   case s of
@@ -251,6 +253,12 @@ parseMove s =
   "hit" -> Just (Hit) 
   "stand" -> Just (Stand)
   otherwise -> Nothing
+
+safeReadInt :: String -> Maybe Int
+safeReadInt s
+  | isSafe s = Just (read s) 
+  | otherwise = Nothing
+  where isSafe s = all isDigit s && not (null s)
 
 prompt :: String -- query message
   -> String -- help message
@@ -275,18 +283,13 @@ prompt query help parse act = do
 data Move = Hit | Stand | Play
   deriving (Enum, Eq)
 
-informAboutLoss hand = "You busted!" ++ list_to_string(hand) ++ " (" ++ (show (handValue hand)) ++ " The house wins."
-
 playerHits hand deck = do
-  print (hand)
-
   (x,xs) <- hitHand hand deck
   case compare (handValue x) 21 of
     LT -> playerTurn x xs
     EQ -> playerTurn x xs
     GT -> do
-            putStrLn (playerBusted hand) -- Show the lpayer his final hand and score, then restart the game
-            gameLoop deck
+            return (x,xs)
 
 takeAction hand deck action = 
   case action of 
@@ -331,39 +334,81 @@ isBlackjack hand =
     (((scoreValue(cardScore(head hand)) == 11) && (scoreValue(cardScore(last hand)) == 10)) || 
     ((scoreValue(cardScore(last hand)) == 11) && (scoreValue(cardScore(head hand)) == 10)))
 
-gameLoop :: Deck -> IO a
-gameLoop deck = do
-  (dealerHand, playerHand, deck) <- dealInitialHands deck -- Get initial hands
+type Wallet = Int
 
+askForMoney :: Int -> Wallet -> IO (Int,Wallet)
+askForMoney bet wallet = do
+  return (bet, wallet)
+
+addMoney :: Wallet -> Wallet -> IO Wallet
+addMoney bet wallet = 
+  return (wallet+bet)
+
+deductMoney bet wallet =
+  return (wallet-bet)
+
+gameLoop :: Deck -> Wallet -> IO a
+gameLoop deck wallet = do
+  (bet,leftInWallet) <- let getBet bet = askForMoney bet wallet in
+    prompt (showWallet wallet) "You can bet any amount between 0 and the maximum amount in your wallet" safeReadInt getBet
+  
+  (dealerHand, playerHand, deck) <- dealInitialHands deck -- Get initial hands
+  
   let beginGame move = showDealersFirst dealerHand deck move in -- Show the dealer's first card, start a new round
     prompt "Ready?" "Press Enter to continue" parseMove beginGame
 
   (playerHand,playerDeck) <- playerTurn playerHand deck -- Player's turn
-  (dealerHand,dealerDeck) <- dealerTurn dealerHand playerDeck -- Dealer's turn
+  if (handValue playerHand) > 21 then do
+    putStrLn (playerBusted playerHand) -- Show the player his final hand and score, then restart the game
+    wallet <- deductMoney bet leftInWallet
+    gameLoop playerDeck wallet
+  else do
+    (dealerHand,dealerDeck) <- dealerTurn dealerHand playerDeck -- Dealer's turn
   
-  putStrLn (dealerReveals dealerHand) -- Show dealer's hand after he is done hitting
+    putStrLn (dealerReveals dealerHand) -- Show dealer's hand after he is done hitting
+
+    -- *** The above is the main functionality of the game, the below is only evaluating the winner and restarting the game *** --
 
   if length playerHand == 2 && isBlackjack playerHand && (length dealerHand) /= 2 -- If the player has two card and blackjack, but the bank has more than 2, the player automatically wins
-  then putStrLn "You win!"
+  then do
+    putStrLn "You win!"
+    wallet <- addMoney bet leftInWallet
+    gameLoop deck wallet
   else if length playerHand == 2 && isBlackjack playerHand && isBlackjack dealerHand
-  then putStrLn "Tie; Nobody wins."
-  else if length dealerHand == 2 && isBlackjack playerHand && length playerHand /= 2
-  then putStrLn "The house wins."
+  then do
+    putStrLn "Tie; Nobody wins."
+    gameLoop deck leftInWallet -- Start new round with old wallet since we had a tie
+  else if length dealerHand == 2 && isBlackjack dealerHand && length playerHand /= 2
+  then do
+    putStrLn "The house wins."
+    wallet <- deductMoney bet leftInWallet
+    gameLoop deck wallet -- Start new round with updated wallet
   else if handValue playerHand > handValue dealerHand
-  then putStrLn "You win!"
-  else putStrLn "The house wins."
-
-  gameLoop deck -- Start new round
-
--- *** End of Question 4.1 *** --
+  then do 
+    putStrLn "You win!"
+    wallet <- addMoney bet leftInWallet
+    gameLoop deck wallet
+  else if handValue playerHand == handValue dealerHand  
+  then do
+    putStrLn "Tie; Nobody wins."
+    gameLoop deck leftInWallet
+  else do
+    putStrLn "The house wins."
+    wallet <- deductMoney bet leftInWallet
+    gameLoop deck wallet
 
 main :: IO ()
 main = do
   putStrLn "Welcome to blackjack!"
   deck <- freshDeck
-  gameLoop deck
+  let initialMoney = 100 :: Wallet
+  gameLoop deck initialMoney
 
 {--
   TODO: 
     - Doublecheck error handling
+    - Make sure bet isn't larger than wallet
+    - Checking for blackjack is not working properly right now
+    - Normal score evaluation also is kind of funky still
+    - What to do with fractions in case of surrender?
 --}
