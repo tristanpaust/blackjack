@@ -63,18 +63,21 @@ scoreValue (Score ([])) = 0
 scoreValue (Score (x:xs)) = x + scoreValue (Score xs)
 
 improveScore :: Score -> Score
-improveScore (Score (x:xs)) = if (scoreValue (Score (x:xs)) > 21) then (Score [x,0]) else (Score (x:xs))
+improveScore (Score (x:xs)) = 
+  if ((scoreValue (Score (x:xs)) > 21) && ((sum xs) /= 0))
+  then improveScore (Score [x,((sum xs)-10)]) 
+  else (Score (x:xs))
 
--- improveScore(Score[1,30])
--- -> Score [1,0]
--- improveScore(Score[12,30])
--- -> Score [12,0]
--- improveScore(Score[21,30])
--- -> Score [21,0]
--- improveScore(Score[11,10])
+-- Get the score and if it's a bust and if the second part of the list is not empty (that is, the soft score that can be reduced)
+-- then lower the soft score by 10 (that is, turn the Ace from Score[1,10] to Score[1,0])
+-- then call yourself again to check whether we're still above 21.
+-- If we still are, and we still have something in the soft score, lower it by 10 again
+-- I can just reduce by 10 here since the only thing that will be in the softscore is 10's, added by Aces
+
+-- improveScore(handScore([IntCard 9 Spades, AceCard "Ace" Diamonds, AceCard "Ace" Spades]))
 -- -> Score [11,10]
--- scoreValue(Score[11,10])
--- -> 21
+-- improveScore(handScore([RoyalCard King Spades, AceCard "Ace" Diamonds, AceCard "Ace" Spades]))
+-- -> Score [12,0]
 
 instance Monoid Score where
   mempty = Score []
@@ -436,6 +439,4 @@ main = do
 {--
   TODO: 
     - Doublecheck error handling
-    - Make sure bet isn't larger than wallet
-    - What to do with fractions in case of surrender?
 --}
