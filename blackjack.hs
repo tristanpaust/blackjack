@@ -363,39 +363,44 @@ gameLoop deck wallet = do
     wallet <- deductMoney bet leftInWallet
     gameLoop playerDeck wallet
   else do
-    (dealerHand,dealerDeck) <- dealerTurn dealerHand playerDeck -- Dealer's turn
+    (dealerHand',dealerDeck) <- dealerTurn dealerHand playerDeck -- Dealer's turn
   
-    putStrLn (dealerReveals dealerHand) -- Show dealer's hand after he is done hitting
+    putStrLn (dealerReveals dealerHand') -- Show dealer's hand after he is done hitting
 
     -- *** The above is the main functionality of the game, the below is only evaluating the winner and restarting the game *** --
 
-  if length playerHand == 2 && isBlackjack playerHand && (length dealerHand) /= 2 -- If the player has two card and blackjack, but the bank has more than 2, the player automatically wins
-  then do
-    putStrLn "You win!"
-    wallet <- addMoney bet leftInWallet
-    gameLoop deck wallet
-  else if length playerHand == 2 && isBlackjack playerHand && isBlackjack dealerHand
-  then do
-    putStrLn "Tie; Nobody wins."
-    gameLoop deck leftInWallet -- Start new round with old wallet since we had a tie
-  else if length dealerHand == 2 && isBlackjack dealerHand && length playerHand /= 2
-  then do
-    putStrLn "The house wins."
-    wallet <- deductMoney bet leftInWallet
-    gameLoop deck wallet -- Start new round with updated wallet
-  else if handValue playerHand > handValue dealerHand
-  then do 
-    putStrLn "You win!"
-    wallet <- addMoney bet leftInWallet
-    gameLoop deck wallet
-  else if handValue playerHand == handValue dealerHand  
-  then do
-    putStrLn "Tie; Nobody wins."
-    gameLoop deck leftInWallet
-  else do
-    putStrLn "The house wins."
-    wallet <- deductMoney bet leftInWallet
-    gameLoop deck wallet
+    if (length playerHand == 2 && isBlackjack playerHand && (length dealerHand') /= 2) -- If the player has two card and blackjack, but the bank has more than 2, the player automatically wins
+    then do
+      putStrLn "You win!"
+      wallet <- addMoney bet leftInWallet
+      gameLoop deck wallet
+    else if (length playerHand == 2 && isBlackjack playerHand && isBlackjack dealerHand')
+    then do
+      putStrLn "Tie; Nobody wins."
+      gameLoop deck leftInWallet -- Start new round with old wallet since we had a tie
+    else if (length dealerHand' == 2 && isBlackjack playerHand && length playerHand /= 2)
+    then do
+      putStrLn "The house wins."
+      wallet <- deductMoney bet leftInWallet
+      gameLoop deck wallet -- Start new round with updated wallet
+    else if (handValue playerHand > handValue dealerHand')
+    then do 
+      putStrLn "You win!"
+      wallet <- addMoney bet leftInWallet
+      gameLoop deck wallet
+    else if (handValue dealerHand' <= 21 && handValue dealerHand' > handValue playerHand)
+    then do 
+      putStrLn "The house winds."
+      wallet <- deductMoney bet leftInWallet
+      gameLoop deck wallet    
+    else if (handValue playerHand == handValue dealerHand')
+    then do
+      putStrLn "Tie; Nobody wins."
+      gameLoop deck leftInWallet
+    else do
+      putStrLn "You win."
+      wallet <- addMoney bet leftInWallet
+      gameLoop deck wallet
 
 main :: IO ()
 main = do
@@ -408,7 +413,5 @@ main = do
   TODO: 
     - Doublecheck error handling
     - Make sure bet isn't larger than wallet
-    - Checking for blackjack is not working properly right now
-    - Normal score evaluation also is kind of funky still
     - What to do with fractions in case of surrender?
 --}
