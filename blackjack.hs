@@ -246,12 +246,16 @@ playerBusted hand = "You busted! " ++ list_to_string(hand) ++ " (" ++ (show (han
 showWallet :: Wallet -> String
 showWallet money = "You have " ++ (show money) ++ "$ in your wallet. How much do you want to bet?"
 
+showSurrender :: Wallet -> String
+showSurrender money = "You chose to surrender! You get half of your bet back. You now have " ++ (show money) ++ "$ in your wallet.\n"
+
 parseMove :: String -> Maybe Move
 parseMove s =
   case s of
   "" -> Just (Play)
   "hit" -> Just (Hit) 
   "stand" -> Just (Stand)
+  "surrender" -> Just (Surrender)
   otherwise -> Nothing
 
 safeReadInt :: String -> Maybe Int
@@ -270,7 +274,9 @@ prompt query help parse act = do
   putStrLn query
   answer <- getLine
   case answer of
-    "quit" -> exitSuccess
+    "quit" -> do
+      putStrLn "Bye."
+      exitSuccess
     "help" -> do
         putStrLn help
         prompt query help parse act
@@ -280,26 +286,30 @@ prompt query help parse act = do
         putStrLn "I did not understand that"
         prompt query help parse act
 
-data Move = Hit | Stand | Play
+data Move = Hit | Stand | Play | Surrender
   deriving (Enum, Eq)
 
-playerHits hand deck = do
+playerHits hand deck bet wallet = do
   (x,xs) <- hitHand hand deck
   case compare (handValue x) 21 of
-    LT -> playerTurn x xs
-    EQ -> playerTurn x xs
+    LT -> playerTurn x xs bet wallet
+    EQ -> playerTurn x xs bet wallet
     GT -> do
-            return (x,xs)
+            return (x, xs, bet, wallet)
 
-takeAction hand deck action = 
+takeAction hand deck bet wallet action = 
   case action of 
-        Hit -> playerHits hand deck
-        Stand -> return (hand,deck)
+        Hit -> playerHits hand deck bet wallet
+        Stand -> return (hand,deck, bet, wallet)
+        Surrender -> do
+                    wallet <- surrenderMoney bet wallet
+                    putStrLn (showSurrender wallet)
+                    gameLoop deck wallet
 
-playerTurn :: Hand -> Deck -> IO (Hand, Deck)
-playerTurn hand deck = 
-  let decideAction action = takeAction hand deck action in
-  prompt (prettyPrint hand) "You can either \"hit\" or \"stand\"." parseMove decideAction
+playerTurn :: Hand -> Deck -> Wallet -> Wallet -> IO (Hand, Deck, Wallet, Wallet)
+playerTurn hand deck bet wallet = 
+  let decideAction action = takeAction hand deck bet wallet action in
+  prompt (prettyPrint hand) "You can \"hit\", \"stand\" or \"surrender\"." parseMove decideAction
 
 dealerTurn :: Hand -> Deck -> IO (Hand, Deck)
 dealerTurn hand deck = do
@@ -352,8 +362,14 @@ addMoney :: Wallet -> Wallet -> IO Wallet
 addMoney bet wallet = 
   return (wallet+bet)
 
+deductMoney :: Wallet -> Wallet -> IO Wallet
 deductMoney bet wallet =
   return (wallet-bet)
+
+surrenderMoney bet wallet =
+  return ((wallet-bet) + (bet `div` 2))
+-- I am using div here, because I don't want to get into floating point conversions here
+-- Also, casinos usually don't want to deal with fractions as well
 
 gameLoop :: Deck -> Wallet -> IO a
 gameLoop deck wallet = do
@@ -365,12 +381,12 @@ gameLoop deck wallet = do
   let beginGame move = showDealersFirst dealerHand deck move in -- Show the dealer's first card, start a new round
     prompt "Ready?" "Press Enter to continue" parseMove beginGame
 
-  (playerHand,playerDeck) <- playerTurn playerHand deck -- Player's turn
-  if (handValue playerHand) > 21 then do
-    putStrLn (playerBusted playerHand) -- Show the player his final hand and score, then restart the game
+  (playerHand,playerDeck, bet, updatedWallet) <- playerTurn playerHand deck bet leftInWallet -- Player's turn
+  if (handValue playerHand) > 21 then do -- Show the player his final busted hand and score, then restart the game
+    putStrLn (playerBusted playerHand) 
     wallet <- deductMoney bet leftInWallet
     gameLoop playerDeck wallet
-  else do
+  else do -- If the player didn't bust, he typed stand at some point, hence it is the dealer's turn now
     (dealerHand',dealerDeck) <- dealerTurn dealerHand playerDeck -- Dealer's turn
   
     putStrLn (dealerReveals dealerHand') -- Show dealer's hand after he is done hitting
@@ -420,5 +436,6 @@ main = do
 {--
   TODO: 
     - Doublecheck error handling
+    - Make sure bet isn't larger than wallet
     - What to do with fractions in case of surrender?
 --}
