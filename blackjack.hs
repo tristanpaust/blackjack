@@ -338,7 +338,15 @@ type Wallet = Int
 
 askForMoney :: Int -> Wallet -> IO (Int,Wallet)
 askForMoney bet wallet = do
-  return (bet, wallet)
+  if wallet == 0 then do
+    putStrLn "You're broke! Come back when you have more money."
+    exitSuccess  
+  else if bet > wallet then do
+    putStrLn "You can't bet more than you have. Try again:"
+    let getBet bet = askForMoney bet wallet in
+      prompt "" "You can bet any amount between 0 and the maximum amount in your wallet" safeReadInt getBet    
+  else  
+    return (bet, wallet)
 
 addMoney :: Wallet -> Wallet -> IO Wallet
 addMoney bet wallet = 
@@ -412,6 +420,5 @@ main = do
 {--
   TODO: 
     - Doublecheck error handling
-    - Make sure bet isn't larger than wallet
     - What to do with fractions in case of surrender?
 --}
