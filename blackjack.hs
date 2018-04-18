@@ -405,7 +405,7 @@ gameLoop deck wallet = do
     then do
       putStrLn "Tie; Nobody wins."
       gameLoop deck leftInWallet -- Start new round with old wallet since we had a tie
-    else if (length dealerHand' == 2 && isBlackjack playerHand && length playerHand /= 2)
+    else if (length dealerHand' == 2 && isBlackjack dealerHand' && length playerHand /= 2)
     then do
       putStrLn "The house wins."
       wallet <- deductMoney bet leftInWallet
@@ -435,8 +435,3 @@ main = do
   deck <- freshDeck
   let initialMoney = 100 :: Wallet
   gameLoop deck initialMoney
-
-{--
-  TODO: 
-    - Doublecheck error handling
---}
